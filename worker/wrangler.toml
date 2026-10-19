@@ -1,0 +1,14 @@
+name = "ezshare-signal"
+main = "src/worker.js"
+compatibility_date = "2026-07-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://tbenitz.github.io,http://localhost:8788,http://127.0.0.1:8788"
+
+[[durable_objects.bindings]]
+name = "SESSIONS"
+class_name = "ShareRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ShareRoom"]
