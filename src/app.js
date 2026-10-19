@@ -73,7 +73,7 @@ async function handleHost(room,c){
  if(done.t!=='verified')throw Error('Receiver failed verification');
  room.completed++;status(room,'Live · '+room.completed+' verified download(s)',100);
  c.send({t:'accepted',completed:room.completed});
- if(room.limit&&room.completed>=room.limit)stopRoom(room);
+ if(room.limit&&room.completed>=room.limit)setTimeout(()=>stopRoom(room),2200);
  }finally{room.inflight--;setTimeout(()=>{try{c.close()}catch{}},1500);}
 }
 async function recover(room){if(room.dead||!room.file||!room.reseed||Date.now()>room.expiry||(room.limit&&room.completed>=room.limit))return;
@@ -127,7 +127,7 @@ async function receive(c,m,b){
     if(received!==m.size)throw Error('Incomplete file');
     if(hasher.digestHex()!==m.sha)throw Error('SHA-256 verification failed');
     if(writer){await writer.close();writer=null;room.file=await handle.getFile();}
-    else{room.file=new Blob(chunks,{type:m.mime});chunks=[];const link=document.createElement('a');const object=URL.createObjectURL(room.file);link.href=object;link.download=nice(m.name);document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(object),60000);}
+    else{room.file=new Blob(chunks,{type:m.mime});Object.defineProperty(room.file,'name',{value:nice(m.name)});chunks=[];const link=document.createElement('a');const object=URL.createObjectURL(room.file);link.href=object;link.download=nice(m.name);document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(object),60000);}
     ended=true;c.send({t:'verified'});status(room,'Verified · download complete',100);
    }else if(x?.t==='accepted'&&ended){room.completed=x.completed;clearTimeout(timeout);c.off('data',handleData);c.off('close',closed);resolve();}
    else if(x?.t==='error')throw Error(x.message);
