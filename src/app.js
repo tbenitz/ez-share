@@ -79,7 +79,7 @@ async function handleHost(room,c){
 async function recover(room){if(room.dead||!room.file||!room.reseed||Date.now()>room.expiry||(room.limit&&room.completed>=room.limit))return;
  if(room.host&&!room.host.destroyed&&!room.host.disconnected)return;
  await delay(1500+Math.random()*4000);
- if(room.dead||room.host&&!room.host.destroyed&&!room.host.disconnected)return;
+ if(room.dead||(room.host&&!room.host.destroyed&&!room.host.disconnected))return;
  try{await makeHost(room,true);}catch(e){status(room,'Waiting for room host · '+e.message);room.timer=setTimeout(()=>recover(room),6000);}
 }
 async function sendCreate(){
@@ -95,11 +95,11 @@ async function sendCreate(){
  catch(e){stopRoom(room);$status('createStatus','Could not create share: '+e.message);}finally{$('create').disabled=false;}
 }
 async function findRoom(code){if(!online)throw Error('PeerJS is offline');
- const c=peer.connect('ezs-'+code.toLowerCase(),{reliable:true,serialization:'binary'});await connOpen(c);return c;}
+ const c=peer.connect('ezs-'+code.toLowerCase(),{reliable:true,serialization:'binary'});const helloPromise=waitPacket(c,x=>x?.t==='hello',17000);await connOpen(c);return {c,helloPromise};}
 async function lookup(code){
  code=codeClean(code);if(!/^[A-Z0-9-]{8,32}$/.test(code))return say('Enter a valid share code (8–32 characters)');
  const out=$('result');out.replaceChildren();const msg=document.createElement('p');msg.textContent='Looking for an active file holder…';out.append(msg);
- try{const c=await findRoom(code);const hello=await waitPacket(c,x=>x?.t==='hello',12000);
+ try{const {c,helloPromise}=await findRoom(code);const hello=await helloPromise;
  const pass=hello.locked?prompt('This share is password protected. Enter the password:'):null;
  if(hello.locked&&pass===null){c.close();msg.textContent='Password required to continue';return;}
  c.send({t:'request',pass:pass||''});
@@ -111,7 +111,7 @@ async function receive(c,m,b){
  b.disabled=true;b.textContent='Preparing download…';const disk=!!window.showSaveFilePicker;
  let handle,writer,chunks=[],received=0;const hasher=new SHA256();
  try{if(disk){try{handle=await window.showSaveFilePicker({suggestedName:nice(m.name)});writer=await handle.createWritable();}catch(e){if(e.name==='AbortError'){b.disabled=false;b.textContent='Download file ↓';return;}throw e;}}
- const room={code:m.code,name:m.name,size:m.size,dead:false,expiry:m.expiry,limit:m.limit,reseed:m.reseed,passwordHash:m.passwordHash,completed:m.completed,conns:new Set([c])};card(room);status(room,'Receiving · 0%',0);c.send({t:'start'});
+ const room={code:m.code,name:m.name,size:m.size,dead:false,expiry:m.expiry,limit:m.limit,reseed:m.reseed,passwordHash:m.passwordHash,completed:m.completed,conns:new Set([c])};rooms.set(room.code,room);card(room);status(room,'Receiving · 0%',0);c.send({t:'start'});
  await new Promise((resolve,reject)=>{
   let chain=Promise.resolve(),ended=false;
   const timeout=setTimeout(()=>reject(Error('Transfer timed out')),1800000);
